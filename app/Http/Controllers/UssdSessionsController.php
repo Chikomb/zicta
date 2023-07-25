@@ -6,11 +6,18 @@ use App\Models\UssdInbox;
 use App\Models\CallBackReturn;
 use App\Models\RegisterComplaint;
 use App\Models\UssdSessions;
+use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class UssdSessionsController extends Controller
-{
+{ 
+    
+        // Define the function to send the confirmation message via SMS
+        function sendConfirmationMessage($phone_number, $message) {
+            // This is a mock function for the SMS gateway, replace this with the actual SMS gateway integration
+            echo "Sending SMS to $phone_number: $message" . PHP_EOL;
+        }
     public function zicta(Request $request)
     {
         // Receiving data from the remote post method (zictaRemoteUtil.php)
@@ -237,36 +244,48 @@ class UssdSessionsController extends Controller
                 case '4': // Register Complaints
                     if ($case_no == 4 && $step_no == 1) {
                         if (!empty($last_part)) {
+                            
+                            // Generate a unique complaint number
+                            $complaint_number = 'CMP-' . date('YmdHis') . '-' . mt_rand(1000, 9999);
                             // Store the complaint in the database or take necessary actions
                             // For example:
                             $complaint = RegisterComplaint::create([
+                                'complaint_number' => $complaint_number,
                                 'description' => $last_part,
                                 'session_id' => $session_id
                             ]);
                             $complaint->save();
-
+                    
+                            // Send SMS to the customer with the complaint number
+                            $customer_phone_number = Customer::getPhoneNumberBySessionId($session_id);
+                            if ($customer_phone_number) {
+                                $sms_message = "Thank you for registering your complaint. Your complaint number is: $complaint_number. We will look into it. Press 0 to return to the main menu.";
+                                $this->sendConfirmationMessage($customer_phone_number, $sms_message);
+                            } else {
+                                // Handle the case where you are unable to retrieve the customer's phone number.
+                                // For example, log an error and notify the administrator.
+                                error_log("Error: Unable to retrieve customer's phone number for session_id: $session_id");
+                                // Alternatively, you can send an error message to the user instead of an SMS.
+                                $sms_message = "There was an error processing your complaint. Please try again later.";
+                                $this->sendConfirmationMessage($phone, $sms_message);
+                            }
+                    
                             // Generate the confirmation message
                             $message_string = "Thank you for registering your complaint. We will look into it. Press 0 to return to the main menu.";
                             $request_type = "2";
 
-                            // Update the session record
-                            $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                "case_no" => 4,
-                                "step_no" => 2
-                            ]);
-                        } else {
-                            $message_string = "To register a complaint, please enter a brief description of your complaint.";
+                         } else {
+                            // User entered "0" for returning to the main menu
+                            $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
                             $request_type = "2";
+                            // Reset the session to return to the main menu
+                            $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                "case_no" => 0,
+                                "step_no" => 1
+                            ]);
                         }
-                    } elseif ($case_no == 4 && $step_no == 2 && $last_part == '0') {
-                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
-                        $request_type = "2";
-                        // Update the session record
-                        $update_session = UssdSessions::where('session_id', $session_id)->update([
-                            "case_no" => 0,
-                            "step_no" => 1
-                        ]);
-                    }
+
+                    }    
                     break;
                 case '5': // Types of Complaints
                     if ($case_no == 5 && $step_no == 1 && !empty($last_part) && is_numeric($last_part)) {

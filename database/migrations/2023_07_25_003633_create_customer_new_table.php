@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('register_complaints', function (Blueprint $table) {
+        Schema::create('customer_new', function (Blueprint $table) {
             $table->id();
-            $table->string('complaint_number')->unique();
-            $table->text('description');
+            $table->string('name');
+            $table->string('email');
+            $table->string('phone');
             $table->string('session_id');
             $table->timestamps();
         });
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('register_complaints');
+        Schema::dropIfExists('customer_new');
     }
 };
