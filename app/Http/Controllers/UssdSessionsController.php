@@ -9,6 +9,41 @@ use App\Models\UssdSessions;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+// Add a function to generate the complaint number
+function generateComplaintNumber() {
+    return 'CMP-' . date('YmdHis') . '-' . mt_rand(1000, 9999);
+}
+// Function to send the confirmation message via the specified SMS API
+function sendConfirmationMessage($phone_number, $message) {
+    // Replace the following with your actual SMS API details
+    $api_username = 'YOUR_SMS_API_USERNAME';
+    $api_password = 'YOUR_SMS_API_PASSWORD';
+    $api_url = 'http://www.cloudservicezm.com/smsservice/httpapi';
+
+    // Format the message for the SMS API
+    $formatted_message = "Hi, your complaint number is $message";
+    $url_encoded_message = urlencode($formatted_message);
+
+    // Construct the SMS API request URL
+    $sms_api_url = $api_url . "?username=$api_username&password=$api_password&msg=$url_encoded_message.+&shortcode=2343&sender_id=Ontech&phone=$phone_number&api_key=121231313213123123";
+
+    try {
+        // Send the HTTP request to the SMS API
+        $response = Http::withoutVerifying()->post($sms_api_url);
+
+        if ($response->successful()) {
+            echo "SMS sent successfully to $phone_number: $formatted_message" . PHP_EOL;
+        } else {
+            // Handle the case where the API request was not successful
+            echo "Failed to send SMS to $phone_number: " . $response->body() . PHP_EOL;
+        }
+    } catch (Exception $e) {
+        // Handle any exceptions that occur during the HTTP request
+        error_log("Error sending SMS to $phone_number: " . $e->getMessage());
+        echo "There was an error sending the SMS. Please try again later." . PHP_EOL;
+    }
+}
+
 
 class UssdSessionsController extends Controller
 { 
@@ -244,31 +279,31 @@ class UssdSessionsController extends Controller
                 case '4': // Register Complaints
                     if ($case_no == 4 && $step_no == 1) {
                         if (!empty($last_part)) {
-                            
-                            // Generate a unique complaint number
-                            $complaint_number = 'CMP-' . date('YmdHis') . '-' . mt_rand(1000, 9999);
-                            // Store the complaint in the database or take necessary actions
-                            // For example:
-                            $complaint = RegisterComplaint::create([
-                                'complaint_number' => $complaint_number,
-                                'description' => $last_part,
-                                'session_id' => $session_id
-                            ]);
-                            $complaint->save();
-                    
-                            // Send SMS to the customer with the complaint number
-                            $customer_phone_number = Customer::getPhoneNumberBySessionId($session_id);
-                            if ($customer_phone_number) {
-                                $sms_message = "Thank you for registering your complaint. Your complaint number is: $complaint_number. We will look into it. Press 0 to return to the main menu.";
-                                $this->sendConfirmationMessage($customer_phone_number, $sms_message);
-                            } else {
-                                // Handle the case where you are unable to retrieve the customer's phone number.
-                                // For example, log an error and notify the administrator.
-                                error_log("Error: Unable to retrieve customer's phone number for session_id: $session_id");
-                                // Alternatively, you can send an error message to the user instead of an SMS.
-                                $sms_message = "There was an error processing your complaint. Please try again later.";
-                                $this->sendConfirmationMessage($phone, $sms_message);
-                            }
+                            // Generate a unique complaint number using the function
+        $complaint_number = generateComplaintNumber();
+         // Store the complaint in the database or take necessary actions
+        // For example:
+        $complaint = RegisterComplaint::create([
+            'complaint_number' => $complaint_number,
+            'description' => $last_part,
+            'session_id' => $session_id
+        ]);
+        $complaint->save();
+
+        // Send SMS to the customer with the complaint number
+        $customer_phone_number = $phone; // Assuming the phone number is available in the $phone variable
+        if ($customer_phone_number) {
+            $sms_message = "Thank you for registering your complaint. Your complaint number is: $complaint_number. We will look into it. Press 0 to return to the main menu.";
+            sendConfirmationMessage($customer_phone_number, $complaint_number); // Use the complaint number as the message
+        } else {
+            // Handle the case where you are unable to retrieve the customer's phone number.
+            // For example, log an error and notify the administrator.
+            error_log("Error: Unable to retrieve customer's phone number for session_id: $session_id");
+            // Alternatively, you can send an error message to the user instead of an SMS.
+            $sms_message = "There was an error processing your complaint. Please try again later.";
+            sendConfirmationMessage($phone, $sms_message);
+        }
+
                     
                             // Generate the confirmation message
                             $message_string = "Thank you for registering your complaint. We will look into it. Press 0 to return to the main menu.";
