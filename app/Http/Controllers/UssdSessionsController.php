@@ -47,19 +47,8 @@ function sendConfirmationMessage($phone_number, $message) {
 
 class UssdSessionsController extends Controller
 { 
-    // Check if the user is logged in
-    private function checkLoginStatus()
-    {
-        // Check if the 'logged_in' session variable is set and true
-        if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-            return true;
-        } else {
-            // Redirect the user to the login page if not logged in
-            header('Location: login.php');
-            exit;
-        }
-    }
     
+
         // Define the function to send the confirmation message via SMS
         function sendConfirmationMessage($phone_number, $message) {
             // This is a mock function for the SMS gateway, replace this with the actual SMS gateway integration
@@ -67,8 +56,7 @@ class UssdSessionsController extends Controller
         }
     public function zicta(Request $request)
     {
-        // Check if the user is logged in before processing the USSD request
-        $this->checkLoginStatus();
+        
         // Receiving data from the remote post method (zictaRemoteUtil.php)
         $auth = $request->get('auth');
         $data = $request->get('ussd_request');
