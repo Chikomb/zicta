@@ -47,6 +47,18 @@ function sendConfirmationMessage($phone_number, $message) {
 
 class UssdSessionsController extends Controller
 { 
+    // Check if the user is logged in
+    private function checkLoginStatus()
+    {
+        // Check if the 'logged_in' session variable is set and true
+        if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+            return true;
+        } else {
+            // Redirect the user to the login page if not logged in
+            header('Location: login.php');
+            exit;
+        }
+    }
     
         // Define the function to send the confirmation message via SMS
         function sendConfirmationMessage($phone_number, $message) {
@@ -55,6 +67,8 @@ class UssdSessionsController extends Controller
         }
     public function zicta(Request $request)
     {
+        // Check if the user is logged in before processing the USSD request
+        $this->checkLoginStatus();
         // Receiving data from the remote post method (zictaRemoteUtil.php)
         $auth = $request->get('auth');
         $data = $request->get('ussd_request');
@@ -99,7 +113,7 @@ class UssdSessionsController extends Controller
             switch ($case_no) {
                 case '0': // Welcome
                     if ($case_no == 0 && $step_no == 1) {
-                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
                         $request_type = "2";
                         // Update the session record
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -113,7 +127,7 @@ class UssdSessionsController extends Controller
                         // Retrieve and display ZICTA's information
                     
                         if ($last_part == 0) {
-                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
                         $request_type = "2";
 
                         // Update the session record to go back to the main menu
@@ -124,7 +138,7 @@ class UssdSessionsController extends Controller
                         
                     }
                     if ($last_part == 1) {
-                        $message_string = "ZICTA (Zambia Information and Communications Technology Authority) is the regulatory body for the ICT sector in Zambia. We promote the development, provision, and use of reliable and affordable ICT services. Press any key to return to the main menu.";
+                        $message_string = "ZICTA (Zambia Information and Communications Technology Authority) is the regulatory body for the ICT sector in Zambia. We promote the development, provision, and use of reliable and affordable ICT services.\n Press any key to return to the main menu.";
                         $request_type = "2";
 
                         // Update the session record to go back to the main menu
@@ -168,13 +182,13 @@ class UssdSessionsController extends Controller
                         
                     }
                     if ($last_part == 5) {
-                        $message_string = "Please select the type of complaint:\n 1. Scamming messages\n 2. Unsolicated messages\n 3.Deregister sim \n Press 0 to return to the main menu.";
+                        $message_string = "Please enter your complaint number:";
                         $request_type = "2";
 
                         // Update the session record to go back to the main menu
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
                                 "case_no" => 5,
-                                "step_no" => 1
+                                "step_no" => 2
                             ]);
                         
                     }
@@ -251,7 +265,7 @@ class UssdSessionsController extends Controller
                                 break;
                         }
                     } elseif ($case_no == 3 && $step_no == 1 && $last_part == '0') {
-                        $message_string = "Welcome to ZICTA.  Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                        $message_string = "Welcome to ZICTA.  Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
                         $request_type = "2";
                         // Update the session record
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -260,7 +274,7 @@ class UssdSessionsController extends Controller
                         ]);
                     }
                     elseif ($case_no == 3 && $step_no == 2 && $last_part == '0') {
-                        $message_string = "Welcome to ZICTA.  Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                        $message_string = "Welcome to ZICTA.  Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
                         $request_type = "2";
                         // Update the session record
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -311,7 +325,7 @@ class UssdSessionsController extends Controller
 
                          } else {
                             // User entered "0" for returning to the main menu
-                            $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                            $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status ";
                             $request_type = "2";
                             // Reset the session to return to the main menu
                             $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -322,90 +336,53 @@ class UssdSessionsController extends Controller
 
                     }    
                     break;
-                case '5': // Types of Complaints
-                    if ($case_no == 5 && $step_no == 1 && !empty($last_part) && is_numeric($last_part)) {
-                        switch ($last_part) {
-                            case '1': // Scamming Messages
-                                $message_string = "Please select the type of scamming message:\n 1. If it was a Promotion\n 2. If it was a Job advert\n 3. If it was a Lottery\n 4. If it was other scams";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 2
-                                ]);
-                                break;
-                            case '2': // Unsolicited Messages
-                                $message_string = "Please select the type of unsolicited message:\n 1.For Adverts\n 2.For Offensive content\n 3. For Religious content\n 4. For Hate speech\n 5. For Other unsolicited message";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 2
-                                ]);
-                                break;
-                            case '3': // Deregister SIM
-                                $message_string = "Please enter your NRC number.";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 2
-                                ]);
-                                break;
-                            default:
-                                $message_string = "Invalid option selected. Press 0 to return to the main menu.";
-                                $request_type = "2";
-                                break;
-                                
-
-                        }
-                    } elseif ($case_no == 5 && $step_no == 2) {
-                        switch ($last_part) {
-                            case '1': // Scamming Messages - Type of Scam Message
-                                $message_string = "Please enter the number from which you received the message.";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 3
-                                ]);
-                                break;
-                            case '2': // Unsolicited Messages - Type of Message
-                                $message_string = "Please enter the number of the offender.";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 3
-                                ]);
-                                break;
-                            case '3': // Deregister SIM - NRC number
-                                $message_string = "Please enter the number you wish to deregister.";
-                                $request_type = "2";
-                                // Update the session record
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "case_no" => 5,
-                                    "step_no" => 3
-                                ]);
-                                break;
-                            default:
-                                $message_string = "Invalid option selected. Press 0 to return to the main menu.";
-                                $request_type = "2";
-                                break;
-                        }
-                    } elseif ($case_no == 5 && $step_no == 3 && !empty($last_part)) {
-                        if ($step_no == 3 && $last_part == '0') {
-                            $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Types of Complaints";
+                    case '5': // Check Complaint Status
+                        if ($case_no == 5 && $step_no == 1) {
+                            // Ask the user to enter their complaint number
+                            $response = "Please enter your complaint number:";
                             $request_type = "2";
-                            // Update the session record
+                            // Update the session record to move to the next step and capture the complaint number
                             $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                "case_no" => 0,
-                                "step_no" => 1
+                                "step_no" => 2
                             ]);
-                        } 
-                        
-                    }
-                    break;
+                        } elseif ($case_no == 5 && $step_no == 2) {
+                            // User entered their complaint number
+                            $complaint_number = trim($last_part);
+        
+                            // Check if the complaint number is valid (you may need to customize this validation)
+                            if (!preg_match('/^CMP-\d{14}-\d{4}$/', $complaint_number)) {
+                                // Invalid complaint number format
+                                $response = "Invalid complaint number format. Please enter a valid complaint number.";
+                                $request_type = "2";
+                                // Reset the session to allow the user to enter the complaint number again
+                                $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                    "step_no" => 1
+                                ]);
+                            } else {
+                                // Check the database for the complaint number
+                                $complaint = RegisterComplaint::where('complaint_number', $complaint_number)->first();
+        
+                                if ($complaint) {
+                                    // Complaint found, display its status to the user
+                                    $complaint_status = $complaint->status; // Replace 'status' with the actual field name in the RegisterComplaint model
+                                    $response = "Complaint #$complaint_number status: $complaint_status";
+                                } else {
+                                    // Complaint not found, notify the user
+                                    $response = "Complaint #$complaint_number not found. Please check the number and try again.";
+                                }
+        
+                                // Go back to the main menu after displaying the complaint status or error message
+                                $response .= "\n\nWelcome to ZICTA. Please select from the following options:\n1. About Us\n2. Request Call Back\n3. Inquiries\n4. Register Complaints\n5. Check Complaint Status";
+                                $request_type = "2";
+                                // Reset the session to return to the main menu
+                                $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                    "case_no" => 0,
+                                    "step_no" => 1
+                                ]);
+                            }
+                        }
+                        break;
+                
                     
                     
 
@@ -421,6 +398,7 @@ class UssdSessionsController extends Controller
 
             return response()->json($response);
         }
+   
     }
 
 }

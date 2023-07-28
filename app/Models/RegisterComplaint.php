@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class RegisterComplaint extends Model
 {
     use HasFactory;
-    protected $fillable = ['complaint_number', 'description', 'session_id'];
+    protected $fillable = ['complaint_number', 'description','status', 'session_id'];
 
     // Validation rules
     public static $rules = [
