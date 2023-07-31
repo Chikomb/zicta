@@ -54,9 +54,12 @@ class UssdSessionsController extends Controller
             // This is a mock function for the SMS gateway, replace this with the actual SMS gateway integration
             echo "Sending SMS to $phone_number: $message" . PHP_EOL;
         }
+
+      
+
     public function zicta(Request $request)
     {
-        
+
         // Receiving data from the remote post method (zictaRemoteUtil.php)
         $auth = $request->get('auth');
         $data = $request->get('ussd_request');
@@ -176,7 +179,7 @@ class UssdSessionsController extends Controller
                         // Update the session record to go back to the main menu
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
                                 "case_no" => 5,
-                                "step_no" => 2
+                                "step_no" => 1
                             ]);
                         
                     }
@@ -282,14 +285,17 @@ class UssdSessionsController extends Controller
                     if ($case_no == 4 && $step_no == 1) {
                         if (!empty($last_part)) {
                             // Generate a unique complaint number using the function
-        $complaint_number = generateComplaintNumber();
-         // Store the complaint in the database or take necessary actions
-        // For example:
-        $complaint = RegisterComplaint::create([
-            'complaint_number' => $complaint_number,
-            'description' => $last_part,
-            'session_id' => $session_id
-        ]);
+                            $complaint_number = generateComplaintNumber();
+                            // Store the complaint number in the session for later use
+                           session(['complaint_number' => $complaint_number]);
+                           // Store the complaint in the database or take necessary actions
+                           // For example:
+                           $complaint = RegisterComplaint::create([
+                           'complaint_number' => $complaint_number,
+                           'description' => $last_part,
+                           'session_id' => $session_id,
+                        "status"=> 'Pending', // Set the status to 'Pending' when registering a new complaint
+                        ]);
         $complaint->save();
 
         // Send SMS to the customer with the complaint number
@@ -326,41 +332,45 @@ class UssdSessionsController extends Controller
                     break;
                     case '5': // Check Complaint Status
                         if ($case_no == 5 && $step_no == 1) {
-                            // Ask the user to enter their complaint number
-                            $response = "Please enter your complaint number:";
-                            $request_type = "2";
-                            // Update the session record to move to the next step and capture the complaint number
-                            $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                "step_no" => 2
-                            ]);
-                        } elseif ($case_no == 5 && $step_no == 2) {
-                            // User entered their complaint number
-                            $complaint_number = trim($last_part);
-        
-                            // Check if the complaint number is valid (you may need to customize this validation)
-                            if (!preg_match('/^CMP-\d{14}-\d{4}$/', $complaint_number)) {
-                                // Invalid complaint number format
-                                $response = "Invalid complaint number format. Please enter a valid complaint number.";
-                                $request_type = "2";
-                                // Reset the session to allow the user to enter the complaint number again
-                                $update_session = UssdSessions::where('session_id', $session_id)->update([
-                                    "step_no" => 1
-                                ]);
-                            } else {
-                                // Check the database for the complaint number
-                                $complaint = RegisterComplaint::where('complaint_number', $complaint_number)->first();
-        
-                                if ($complaint) {
-                                    // Complaint found, display its status to the user
-                                    $complaint_status = $complaint->status; // Replace 'status' with the actual field name in the RegisterComplaint model
-                                    $response = "Complaint #$complaint_number status: $complaint_status";
+                            if (!empty($last_part)) {
+                                // Validate the user input to check if it matches the expected format 'CMP-YYYYMMDDHHmmss-XXXX'
+                                $complaint_format = '/^CMP-\d{14}-\d{4}$/';
+                                $complaint_number_input = trim(strtoupper($last_part));
+                                
+                                if ($complaint_number_input === '0') {
+                                    // User entered "0" for returning to the main menu
+                                    $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
+                                    $request_type = "2";
+                                    // Reset the session to return to the main menu
+                                    $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                        "case_no" => 0,
+                                        "step_no" => 1
+                                    ]);
+                                } elseif (preg_match($complaint_format, $complaint_number_input)) {
+                                    // Valid complaint number format, retrieve the status from the sample data
+                    
+                                    // Assuming you have a database table named "complaints" with the complaint data
+                                    // Replace 'complaints' with the actual table name if different
+                                    $complaint_data = RegisterComplaint::all()->pluck('status', 'complaint_number')->toArray();
+                    
+                                    if (array_key_exists($complaint_number_input, $complaint_data)) {
+                                        $complaint_status = $complaint_data[$complaint_number_input];
+                                        $message_string = "Complaint #$complaint_number_input status: $complaint_status \n press 0 to return to the main menu.";
+                                        // Set the request type to "1" to end the session after displaying the status
+                                        $request_type = "1";
+                                    } else {
+                                        // Complaint not found in the sample data, notify the user
+                                        $message_string = "Complaint #$complaint_number_input not found. Please check the number and try again or press 0 to return to the main menu.";
+                                        $request_type = "2"; // Request further user input
+                                    }
                                 } else {
-                                    // Complaint not found, notify the user
-                                    $response = "Complaint #$complaint_number not found. Please check the number and try again.";
+                                    // Invalid complaint number format, notify the user
+                                    $message_string = "Invalid complaint number format. Please enter the correct complaint number or press 0 to return to the main menu.";
+                                    $request_type = "2"; // Request further user input
                                 }
-        
-                                // Go back to the main menu after displaying the complaint status or error message
-                                $response .= "\n\nWelcome to ZICTA. Please select from the following options:\n1. About Us\n2. Request Call Back\n3. Inquiries\n4. Register Complaints\n5. Check Complaint Status";
+                            } else {
+                                // User entered "0" for returning to the main menu
+                                $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
                                 $request_type = "2";
                                 // Reset the session to return to the main menu
                                 $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -370,6 +380,14 @@ class UssdSessionsController extends Controller
                             }
                         }
                         break;
+                    
+                    
+                   
+                    
+                  
+                    
+                    
+                    
                 
                     
                     
