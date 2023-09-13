@@ -12,6 +12,7 @@ class UssdSessions extends Model
         'phone_number',
         'case_no',
         'step_no',
-        'session_id'
+        'session_id',
+        'sub_case_no'
     ];
 }

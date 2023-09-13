@@ -7,6 +7,7 @@ use App\Models\CallBackReturn;
 use App\Models\RegisterComplaint;
 use App\Models\UssdSessions;
 use App\Models\Customer;
+use App\Models\Inquiries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 // Add a function to generate the complaint number
@@ -54,8 +55,13 @@ class UssdSessionsController extends Controller
             // This is a mock function for the SMS gateway, replace this with the actual SMS gateway integration
             echo "Sending SMS to $phone_number: $message" . PHP_EOL;
         }
+        // Function to generate the inquiry number
+        function generateInquiryNumber() {
+        return 'INQ-' . date('YmdHis') . '-' . mt_rand(1000, 9999);
+        }
 
-      
+
+    
 
     public function zicta(Request $request)
     {
@@ -104,7 +110,7 @@ class UssdSessionsController extends Controller
             switch ($case_no) {
                 case '0': // Welcome
                     if ($case_no == 0 && $step_no == 1) {
-                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status";
+                        $message_string = "Welcome to ZICTA. Please select from the following options:\n 1. About Us \n 2. Request Call Back \n 3. Inquiries \n 4. Register Complaints \n 5. Check Complaint Status \n 6.Report Scams ";
                         $request_type = "2";
                         // Update the session record
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
@@ -129,7 +135,7 @@ class UssdSessionsController extends Controller
                         
                     }
                     if ($last_part == 1) {
-                        $message_string = "ZICTA (Zambia Information and Communications Technology Authority) is the regulatory body for the ICT sector in Zambia. We promote the development, provision, and use of reliable and affordable ICT services.\n Press any key to return to the main menu.";
+                        $message_string = "ZICTA (Zambia Information and Communications Technology Authority) is the regulatory body for the ICT sector in Zambia. We promote the development, provision, and use of reliable and affordable ICT services.\n or visit https://www.zicta.zm/about-us \n Press any key to return to the main menu.";
                         $request_type = "2";
 
                         // Update the session record to go back to the main menu
@@ -183,6 +189,17 @@ class UssdSessionsController extends Controller
                             ]);
                         
                     }
+                    if ($last_part == 6) {
+                        $message_string = "Select one of the following: \n 1. Scamming Messages \n 2. Unsolicited Messages \n 3. Deregister SIM";
+                        $request_type = "2";
+
+                        // Update the session record to go back to the main menu
+                        $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                "case_no" => 6,
+                                "step_no" => 1
+                            ]);
+                        
+                    }
                 }   
                     break;
                 case '2': // Request Call Back
@@ -211,7 +228,7 @@ class UssdSessionsController extends Controller
 
                         // Update the session record
                         $update_session = UssdSessions::where('session_id', $session_id)->update([
-                            "case_no" => 3,
+                            "case_no" => 0,
                             "step_no" => 1
                         ]);
                     }
@@ -228,7 +245,7 @@ class UssdSessionsController extends Controller
                                 // Update the session record
                                 $update_session = UssdSessions::where('session_id', $session_id)->update([
                                     "case_no" => 3,
-                                    "step_no" => 2
+                                    "step_no" => 4
                                 ]);
                                 break;
                                
@@ -238,7 +255,7 @@ class UssdSessionsController extends Controller
                                 // Update the session record
                                 $update_session = UssdSessions::where('session_id', $session_id)->update([
                                     "case_no" => 3,
-                                    "step_no" => 2
+                                    "step_no" => 4
                                 ]);
                                 break;
                             case '3': // How do I become a registered dealer?
@@ -247,9 +264,32 @@ class UssdSessionsController extends Controller
                                 // Update the session record
                                 $update_session = UssdSessions::where('session_id', $session_id)->update([
                                     "case_no" => 3,
-                                    "step_no" => 2
+                                    "step_no" => 4
                                 ]);
                                 break;
+                            case '4': // Generate Inquiry Number
+                                    // Generate a unique inquiry number using the function
+                                    $inquiry_number = generateInquiryNumber();
+                    
+                                    // Store the inquiry number in the session for later use
+                                    session(['inquiry_number' => $inquiry_number]);
+                    
+                                    // Store the inquiry in the database
+                                    $inquiry = Inquiries::create([
+                                        'inquiry_number' => $inquiry_number,
+                                        'session_id' => $session_id,
+                                        'status' => 'Pending', // Set the initial status
+                                    ]);
+                    
+                                    // Generate the confirmation message
+                                    $message_string = "Your inquiry number is: $inquiry_number. Please keep it for future reference. Press 0 to return to the main menu.";
+                                    $request_type = "2";
+                    
+                                    // Update the session record
+                                    $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                        "case_no" => 0,
+                                        "step_no" => 1
+                                    ]);
                             default:
                                 $message_string = "Invalid option selected. Press 0 to return to the main menu.";
                                 $request_type = "2";
@@ -380,16 +420,97 @@ class UssdSessionsController extends Controller
                             }
                         }
                         break;
+                        
+            case '6': // Report scams
+                if ($case_no == 6 && $step_no == 1 && !empty($last_part) && is_numeric($last_part)&& !empty($last_part) && is_numeric($last_part) && !empty($last_part) && is_numeric($last_part) ) { 
+                            // Scamming Messages
+                            if ($last_part == 1) {
+                                $message_string = "Please enter your NRC number.";
+                                $request_type = "2";
+        
+                                // Update the session record to go back to the main menu
+                                $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                        "case_no" => 6,
+                                        "step_no" => 2
+                                    ]);
+                                
+                            }
+                            // Unsolicited Messages
+                            if ($last_part == 2) {
+                                $message_string = "Please select the type of unsolicited message:\n 1.For Adverts\n 2.For Offensive content\n 3. For Religious content\n 4. For Hate speech\n 5. For Other unsolicited message";
+                                $request_type = "2";
+        
+                                // Update the session record to go back to the main menu
+                                $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                        "case_no" => 6,
+                                        "step_no" => 2
+                                    ]);
+                                
+                            }
+                            // Deregister SIM
+                            if ($last_part == 3) {
+                                $message_string = "Please enter the number you wish to deregister.";
+                                $request_type = "2";
+        
+                                // Update the session record to go back to the main menu
+                                $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                        "case_no" => 6,
+                                        "step_no" => 2
+                                    ]);
+                                    break;
+                                
+                            }
+                            
+                                
+                    } if ($case_no == 6 && $step_no == 2 && !empty($last_part) && is_numeric($last_part)) {
+                        switch ($last_part) {
+                        case '1': // Scamming Messages - Type of Scam Message
+                            $message_string = "Please enter the number from which you received the message.";
+                            $request_type = "2";
+                            // Update the session record to indicate transition to step 3
+                            $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                "case_no" => 6,
+                                "step_no" => 2
+                            ]);
+                            break;
+                        case '2': // Unsolicited Messages - Type of Message
+                            $message_string = "Please enter the number of the offender.";
+                            $request_type = "2";
+                            // Update the session record
+                            $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                "case_no" => 6,
+                                "step_no" => 2
+                            ]);
+                            break;
+                        case '3': // Deregister SIM - NRC number
+                            $message_string = "Please enter the number you wish to deregister.";
+                            $request_type = "2";
+                            // Update the session record
+                            $update_session = UssdSessions::where('session_id', $session_id)->update([
+                                "case_no" => 6,
+                                "step_no" => 2
+                            ]);
+                            break;
+                        
+                    }
+                } else {
+        // Display the message after all logic in step 2
+        $message_string = "Dear customer, your request is being processed. You will receive an SMS shortly. Press 0 to return to the main menu.";
+        $request_type = "2";
+        // Update the session record to stay in step 2
+        $update_session = UssdSessions::where('session_id', $session_id)->update([
+            "case_no" => 0,
+            "step_no" => 1
+        ]);
+    }
+            break;
                     
                     
                    
                     
                   
                     
-                    
-                    
-                
-                    
+                       
                     
 
             }
@@ -407,4 +528,4 @@ class UssdSessionsController extends Controller
    
     }
 
-}
+ }

@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 class Inquiries extends Model
 {
     use HasFactory;
-    protected $fillable = [ 'phone_number', 'message'
-];
+    protected $fillable = [ 
+        'inquiry_number',
+        'description',
+        'session_id',
+        'status',
+    ];
 }

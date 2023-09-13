@@ -13,8 +13,10 @@ return new class extends Migration
     {
         Schema::create('inquiries', function (Blueprint $table) {
             $table->id();
-            $table->string('phone_number');
-            $table->text('message');
+            $table->string('inquiry_number');
+            $table->text('description')->nullable();
+            $table->string('session_id');
+            $table->string('status')->default('Pending');
             $table->timestamps();
         });
     }
